@@ -33,21 +33,17 @@ class TestScript
             } else {
                 $company = array_values($companies)[0];
                 $restOfCompanies = array_slice($companies, 1);
-                $searchList = array($company['id']);
-                foreach ($restOfCompanies as $companyToSearchParent) {
-                    if (in_array($companyToSearchParent['parentId'], $searchList)) {
-                        array_push($searchList, $companyToSearchParent['id']);
-                    }
-                }
-                $exceptChildren = array_filter($restOfCompanies, function ($companyInList) use ($searchList) {
-                    return !(in_array($companyInList['parentId'], $searchList));
-                });
+
+                $searchList = $this->companies->getListOfParentByCompany($company, $restOfCompanies);
+
+                $exceptChildren = $this->companies->getExceptChildrenCompany($searchList, $restOfCompanies);
 
                 if (count($exceptChildren)) {
                     $response = array($this->transformCompany($company));
 
                     $companiesExceptChildren = $this->transformCompanies($exceptChildren);
 
+                    // flatten array from recursive call
                     if (array_key_exists('id', $companiesExceptChildren)) {
                         array_push($response, $companiesExceptChildren);
                     } else {
@@ -55,6 +51,7 @@ class TestScript
                             array_push($response, $companyToResponse);
                         }
                     }
+
                     return $response;
                 } else {
                     return $this->transformCompany($company);
@@ -65,16 +62,9 @@ class TestScript
 
     public function transformCompany($company)
     {
-        $searchList = array($company['id']);
-        foreach ($this->companies->data as $companyToSearchParent) {
-            if (in_array($companyToSearchParent['parentId'], $searchList)) {
-                array_push($searchList, $companyToSearchParent['id']);
-            }
-        }
+        $searchList = $this->companies->getListOfParentByCompany($company, $this->companies->data);
 
-        $children = array_filter($this->companies->data, function ($companyInList) use ($searchList) {
-            return in_array($companyInList['parentId'], $searchList);
-        });
+        $children = $this->companies->getChildrenCompany($searchList, $this->companies->data);
 
         $childrenCosts = array_sum(array_map(function ($child) {
             return $this->travelRecords->getTotalCostBy($child);
